@@ -41,7 +41,8 @@
         .map(file => ({
           title: titleFromFilename(file.name),
           file: `${directory}/${encodeURIComponent(file.name)}`,
-          description: 'MP4 video in your shared library.'
+          description: 'MP4 video in your shared library.',
+          category: /sugarrushsean/i.test(file.name) ? 'Sugarrushsean' : 'Other'
         }));
 
       // Replace entries in place so the player keeps the same array reference.
