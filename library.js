@@ -9,11 +9,18 @@
   const apiUrl = `https://api.github.com/repos/${owner}/${repository}/contents/${directory}?ref=${branch}`;
 
   // Keep a fallback so the player still works if GitHub's API is temporarily unavailable.
-  const videos = [{
-    title: 'im-disappointed-in-discord',
-    file: 'videos/im-disappointed-in-discord.mp4',
-    description: 'MP4 video in your shared library.'
-  }];
+  const videos = [
+    {
+      title: 'I Cannot Believe This Guy Talks To His Sister Like This...',
+      file: 'videos/I%20Cannot%20Believe%20This%20Guy%20Talks%20To%20His%20Sister%20Like%20This....mp4',
+      description: 'MP4 video in your shared library.'
+    },
+    {
+      title: 'im disappointed in discord',
+      file: 'videos/im-disappointed-in-discord.mp4',
+      description: 'MP4 video in your shared library.'
+    }
+  ];
   window.VIDEO_LIBRARY = videos;
 
   const titleFromFilename = name => name
