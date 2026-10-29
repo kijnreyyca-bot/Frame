@@ -54,7 +54,7 @@
   function render() {
     const query = filter.value.trim().toLowerCase();
     const matches = library.map((item, index) => ({item,index})).filter(({item}) => `${item.title} ${item.description}`.toLowerCase().includes(query) && safeVideoPath(item.file));
-    list.innerHTML = matches.length ? matches.map(({item,index}) => `<button class="video-row${activeIndex === index ? ' active' : ''}" type="button" data-index="${index}"><span class="thumb" aria-hidden="true">▶</span><span class="video-info"><span class="video-title">${clean(item.title || 'Untitled video')}</span><span class="video-desc">${clean(item.description || 'MP4 video')}</span></span></button>`).join('') : '<div class="empty"><strong>No videos here yet</strong>Add an MP4 file to the videos folder and list it in library.js.</div>';
+    list.innerHTML = matches.length ? matches.map(({item,index}) => `<button class="video-row${activeIndex === index ? ' active' : ''}" type="button" data-index="${index}"><span class="thumb" aria-hidden="true">▶</span><span class="video-info"><span class="video-title">${clean(item.title || 'Untitled video')}</span><span class="video-desc">${clean(item.description || 'MP4 video')}</span></span></button>`).join('') : '<div class="empty"><strong>No videos here yet</strong>Add an MP4 file to the videos folder in the Frame repository. It will appear here automatically.</div>';
     count.textContent = `${library.length} ${library.length === 1 ? 'video' : 'videos'}`;
     listCount.textContent = `${matches.length} shown`;
   }
@@ -77,6 +77,18 @@
     if (button) play(Number(button.dataset.index));
   });
   filter.addEventListener('input', render);
+  window.addEventListener('video-library-updated', () => {
+    activeIndex = -1;
+    render();
+    if (library.length) play(0);
+    else {
+      player.removeAttribute('src');
+      player.load();
+      title.textContent = 'Pick something from your library';
+      description.textContent = 'Add MP4 files to the videos folder and push them to GitHub.';
+      pageTitle.textContent = 'Choose a video';
+    }
+  });
   player.addEventListener('error', () => {
     if (player.error) description.textContent = 'Could not load this MP4. Check that the file is in the listed path and encoded in a browser-supported format.';
   });
