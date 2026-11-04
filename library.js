@@ -1,31 +1,28 @@
-// GitHub Pages can't list a folder, so discover MP4s from this public repo's API.
-// Load order: fresh cache -> stale cache (refreshed in the background) -> built-in fallback.
+// GitHub Pages cannot list a folder directly, so discover MP4s from this public repo's API.
 (() => {
   'use strict';
 
-  const OWNER = 'kijnreyyca-bot';
-  const REPO = 'Frame';
-  const BRANCH = 'main';
-  const DIR = 'videos';
-  const API_URL = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DIR}?ref=${BRANCH}`;
+  const owner = 'kijnreyyca-bot';
+  const repository = 'Frame';
+  const branch = 'main';
+  const directory = 'videos';
+  const apiUrl = `https://api.github.com/repos/${owner}/${repository}/contents/${directory}?ref=${branch}`;
+  const cacheKey = `frame:last-good-list:${owner}/${repository}`;
 
-  const CACHE_KEY = `frame:library:${OWNER}/${REPO}:v1`;
-  const CACHE_TTL_MS = 5 * 60 * 1000; // unauthenticated API limit is 60 requests/hour per visitor
-  const FETCH_TIMEOUT_MS = 8000;
-  const DESCRIPTION = 'MP4 video in your shared library.';
-
-  // First matching rule wins; anything else lands in DEFAULT_CATEGORY.
-  const CATEGORY_RULES = [{ match: /sugarrushsean/i, category: 'Sugarrushsean' }];
-  const DEFAULT_CATEGORY = 'Other';
-
-  // Used only when there is no cache and the API is unreachable.
-  const FALLBACK_FILES = [
-    { name: 'I Cannot Believe This Guy Talks To His Sister Like This....mp4' },
-    { name: 'im-disappointed-in-discord.mp4' }
+  // Original fallback, so the player still works if GitHub's API is unavailable and nothing is saved yet.
+  const videos = [
+    {
+      title: 'I Cannot Believe This Guy Talks To His Sister Like This...',
+      file: 'videos/I%20Cannot%20Believe%20This%20Guy%20Talks%20To%20His%20Sister%20Like%20This....mp4',
+      description: 'MP4 video in your shared library.'
+    },
+    {
+      title: 'im disappointed in discord',
+      file: 'videos/im-disappointed-in-discord.mp4',
+      description: 'MP4 video in your shared library.'
+    }
   ];
-
-  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-  const isMp4 = name => /\.mp4$/i.test(name);
+  window.VIDEO_LIBRARY = videos;
 
   const titleFromFilename = name => name
     .replace(/\.mp4$/i, '')
@@ -33,69 +30,49 @@
     .replace(/\s+/g, ' ')
     .trim();
 
-  const toEntry = ({ name, size }) => ({
+  // Same entry shape the player has always received.
+  const toEntry = name => ({
     title: titleFromFilename(name),
-    file: `${DIR}/${encodeURIComponent(name)}`,
-    description: DESCRIPTION,
-    category: (CATEGORY_RULES.find(rule => rule.match.test(name)) || {}).category || DEFAULT_CATEGORY,
-    size
+    file: `${directory}/${encodeURIComponent(name)}`,
+    description: 'MP4 video in your shared library.',
+    category: /sugarrushsean/i.test(name) ? 'Sugarrushsean' : 'Other'
   });
 
-  const buildLibrary = files => files
-    .slice()
-    .sort((a, b) => collator.compare(a.name, b.name))
-    .map(toEntry);
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  const buildLibrary = names => names.slice().sort(collator.compare).map(toEntry);
 
-  const readCache = () => {
-    try {
-      const cache = JSON.parse(localStorage.getItem(CACHE_KEY));
-      return cache && Array.isArray(cache.files) ? cache : null;
-    } catch { return null; }
-  };
+  // Replace entries in place so the player keeps the same array reference.
+  const setLibrary = list => videos.splice(0, videos.length, ...list);
 
-  const writeCache = files => {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), files })); } catch { /* storage full or blocked */ }
-  };
+  // Start from the last list that loaded successfully (if any) so the first paint is not empty or outdated.
+  try {
+    const saved = JSON.parse(localStorage.getItem(cacheKey));
+    if (Array.isArray(saved) && saved.length) setLibrary(buildLibrary(saved));
+  } catch { /* no saved list, keep the fallback */ }
 
-  // One shared array: it is updated in place so the player keeps the same reference.
-  const videos = [];
-  window.VIDEO_LIBRARY = videos;
-
-  // Returns true only if the list actually changed, so the player re-renders only when needed.
-  const applyFiles = files => {
-    const next = buildLibrary(files);
-    if (JSON.stringify(next) === JSON.stringify(videos)) return false;
-    videos.splice(0, videos.length, ...next);
-    return true;
-  };
-
-  const refresh = () => fetch(API_URL, {
+  fetch(apiUrl, {
     headers: { Accept: 'application/vnd.github+json' },
-    signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(FETCH_TIMEOUT_MS) : undefined
+    signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(8000) : undefined
   })
     .then(response => {
       if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
       return response.json();
     })
-    .then(items => {
-      const files = items
-        .filter(item => item.type === 'file' && isMp4(item.name))
-        .map(({ name, size }) => ({ name, size }));
+    .then(files => {
+      const mp4s = files.filter(file => file.type === 'file' && /\.mp4$/i.test(file.name));
 
-      // A real video is far bigger than ~1 KB; tiny files are usually Git LFS pointers, which Pages can't play.
-      const pointers = files.filter(file => file.size < 1024).map(file => file.name);
+      // Real videos are far larger than ~1 KB; a tiny "MP4" is almost always a Git LFS pointer, which Pages cannot play.
+      const pointers = mp4s.filter(file => file.size < 1024).map(file => file.name);
       if (pointers.length) console.warn('These MP4s look like Git LFS pointers, not real videos:', pointers);
 
-      writeCache(files);
-      if (applyFiles(files)) window.dispatchEvent(new CustomEvent('video-library-updated'));
+      const names = mp4s.map(file => file.name);
+      try { localStorage.setItem(cacheKey, JSON.stringify(names)); } catch { /* storage blocked or full */ }
+
+      setLibrary(buildLibrary(names));
+      // Always announce the refreshed list, exactly as before.
+      window.dispatchEvent(new CustomEvent('video-library-updated'));
     })
     .catch(error => {
-      console.warn('Could not refresh the video list; keeping the current library.', error);
+      console.warn('Could not refresh the video list; using the saved library.', error);
     });
-
-  // Synchronous first fill, so the player has data on its very first render.
-  const cache = readCache();
-  applyFiles(cache ? cache.files : FALLBACK_FILES);
-
-  if (!cache || Date.now() - cache.time > CACHE_TTL_MS) refresh();
 })();
