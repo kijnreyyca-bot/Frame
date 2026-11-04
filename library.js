@@ -7,9 +7,14 @@
   const branch = 'main';
   const directory = 'videos';
   const apiUrl = `https://api.github.com/repos/${owner}/${repository}/contents/${directory}?ref=${branch}`;
+<<<<<<< HEAD
   const cacheKey = `frame:last-good-list:${owner}/${repository}`;
 
   // Original fallback, so the player still works if GitHub's API is unavailable and nothing is saved yet.
+=======
+
+  // Keep a fallback so the player still works if GitHub's API is temporarily unavailable.
+>>>>>>> 635b52d (Add AnalogHorrorIceberg video and site files)
   const videos = [
     {
       title: 'I Cannot Believe This Guy Talks To His Sister Like This...',
@@ -30,6 +35,7 @@
     .replace(/\s+/g, ' ')
     .trim();
 
+<<<<<<< HEAD
   // Same entry shape the player has always received.
   const toEntry = name => ({
     title: titleFromFilename(name),
@@ -54,11 +60,15 @@
     headers: { Accept: 'application/vnd.github+json' },
     signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(8000) : undefined
   })
+=======
+  fetch(apiUrl, { headers: { Accept: 'application/vnd.github+json' } })
+>>>>>>> 635b52d (Add AnalogHorrorIceberg video and site files)
     .then(response => {
       if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
       return response.json();
     })
     .then(files => {
+<<<<<<< HEAD
       const mp4s = files.filter(file => file.type === 'file' && /\.mp4$/i.test(file.name));
 
       // Real videos are far larger than ~1 KB; a tiny "MP4" is almost always a Git LFS pointer, which Pages cannot play.
@@ -70,6 +80,20 @@
 
       setLibrary(buildLibrary(names));
       // Always announce the refreshed list, exactly as before.
+=======
+      const discovered = files
+        .filter(file => file.type === 'file' && /\.mp4$/i.test(file.name))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+        .map(file => ({
+          title: titleFromFilename(file.name),
+          file: `${directory}/${encodeURIComponent(file.name)}`,
+          description: 'MP4 video in your shared library.',
+          category: /sugarrushsean/i.test(file.name) ? 'Sugarrushsean' : 'Other'
+        }));
+
+      // Replace entries in place so the player keeps the same array reference.
+      videos.splice(0, videos.length, ...discovered);
+>>>>>>> 635b52d (Add AnalogHorrorIceberg video and site files)
       window.dispatchEvent(new CustomEvent('video-library-updated'));
     })
     .catch(error => {
