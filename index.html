@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111318">
 <meta name="description" content="A clean home for your MP4 library.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111318'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='%23a8c7fa'/%3E%3C/svg%3E">
 <title>Frame — MP4 Library</title>
 <style>
 :root{color-scheme:dark;--bg:#111318;--panel:#191c22;--panel2:#20242b;--line:#2a2e36;--text:#f3f4f6;--muted:#9ba1ad;--quiet:#727987;--accent:#a8c7fa;font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);min-height:100vh}.shell{max-width:1440px;margin:auto;padding:0 34px}.topbar{height:72px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:700;letter-spacing:-.4px}.brand-icon{width:30px;height:25px;border:1.5px solid var(--accent);border-radius:7px;display:grid;place-items:center;color:var(--accent);font-size:11px}.top-note{color:var(--muted);font-size:11px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:44px;padding:37px 0 60px}.heading{display:flex;align-items:end;justify-content:space-between;margin-bottom:17px;gap:20px}.eyebrow{font-size:9px;letter-spacing:1.7px;color:var(--muted);font-weight:700}.heading h1{font-size:27px;letter-spacing:-1.1px;margin:6px 0 0;font-weight:650}.count{font-size:11px;color:var(--muted);white-space:nowrap}.player-wrap{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#08090b;box-shadow:0 18px 48px #0003}.player-wrap video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#070809}.now-playing{padding:17px 19px 19px;background:var(--panel)}.now-playing h2{font-size:16px;letter-spacing:-.3px;margin:0 0 5px;font-weight:650}.now-playing p{font-size:12px;color:var(--muted);margin:0}.tip{margin-top:13px;font-size:10px;color:var(--quiet)}.sidebar{border-left:1px solid var(--line);padding-left:25px}.side-head{display:flex;align-items:end;justify-content:space-between;margin:0 0 15px}.side-head h2{font-size:15px;margin:5px 0 0;letter-spacing:-.3px}.search{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font:12px inherit;outline:none;margin:0 0 14px}.search:focus{border-color:#56637a}.search::placeholder{color:var(--quiet)}.list{display:flex;flex-direction:column;gap:6px}.video-row{width:100%;display:grid;grid-template-columns:97px 1fr;gap:12px;padding:8px;border:1px solid transparent;border-radius:9px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:.15s}.video-row:hover{background:var(--panel);border-color:var(--line)}.video-row.active{background:var(--panel2);border-color:#3c424c}.thumb{aspect-ratio:16/9;border-radius:5px;background:linear-gradient(145deg,#313741,#191d25);display:grid;place-items:center;color:var(--accent);font-size:16px;position:relative}.thumb:after{content:'MP4';position:absolute;bottom:5px;right:5px;border-radius:3px;padding:1px 4px;background:#090a0ce0;color:#dce4f2;font-size:8px;letter-spacing:.4px}.video-info{min-width:0;align-self:center}.video-title{font-size:11px;line-height:1.45;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.video-desc{font-size:9px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.empty{padding:25px 12px;text-align:center;color:var(--muted);font-size:11px;border:1px dashed var(--line);border-radius:9px}.empty strong{display:block;color:var(--text);font-size:12px;margin-bottom:6px}.library-note{margin-top:19px;padding:13px;border:1px solid var(--line);border-radius:9px;background:var(--panel);font-size:10px;color:var(--muted);line-height:1.65}.library-note strong{color:var(--text);display:block;margin-bottom:4px}.footer{border-top:1px solid var(--line);padding:17px 0 25px;color:var(--quiet);font-size:10px;display:flex;justify-content:space-between;gap:20px}.footer a{color:var(--muted)}
@@ -24,13 +25,13 @@
     <input class="search" id="filter" type="search" placeholder="Filter videos…" aria-label="Filter the video library">
     <div class="tabs" id="library-tabs" role="tablist" aria-label="Video categories"></div>
     <div class="list" id="video-list"></div>
-    <div class="library-note"><strong>Shared across your devices</strong>Keep your MP4 files in the <code>videos</code> folder and push that folder to your GitHub repository. The page and videos are then available anywhere the site is published.</div>
+    <div class="library-note"><strong>Shared across your devices</strong>Keep your MP4 files in the <code>videos</code> folder. They are stored with Git LFS and streamed from GitHub's media host, so the library works anywhere the site is published.</div>
   </div>
 </aside>
 </main>
 <footer class="footer"><span>Frame · MP4 player</span><span>Files are served by your website. No account or video service needed.</span></footer>
 </div>
-<script src="library.js?v=3"></script>
+<script src="library.js?v=4"></script>
 <script>
 (() => {
   'use strict';
@@ -60,13 +61,13 @@
   };
   function renderTabs() {
     const categories = ['All', ...new Set(library.map(item => item.category || 'Other').sort((a, b) => a.localeCompare(b)))];
+    if (!categories.includes(activeCategory)) activeCategory = 'All';
     tabs.innerHTML = categories.map(category => {
       const categoryCount = category === 'All'
         ? library.length
         : library.filter(item => (item.category || 'Other') === category).length;
       return `<button class="tab" type="button" role="tab" data-category="${clean(category)}" aria-selected="${activeCategory === category}">${clean(category)}<span class="tab-count">${categoryCount}</span></button>`;
     }).join('');
-    if (!categories.includes(activeCategory)) activeCategory = 'All';
   }
   function render() {
     renderTabs();
@@ -83,7 +84,11 @@
     const item = library[index];
     if (!item) return;
     const src = safeVideoPath(item.file);
-    if (!src) { title.textContent = 'This video path is invalid'; return; }
+    if (!src) {
+      title.textContent = 'This video path is invalid';
+      description.textContent = 'Fix or remove the file entry in library.js.';
+      return;
+    }
     activeIndex = index;
     player.src = src;
     player.load();
@@ -107,7 +112,13 @@
   tabs.addEventListener('keydown', event => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     const tabButtons = [...tabs.querySelectorAll('[role="tab"]')];
+    if (!tabButtons.length) return;
     const current = tabButtons.indexOf(document.activeElement);
+    if (current === -1) {
+      event.preventDefault();
+      tabButtons[0].focus();
+      return;
+    }
     const step = event.key === 'ArrowRight' ? 1 : -1;
     const next = tabButtons[(current + step + tabButtons.length) % tabButtons.length];
     if (next) { event.preventDefault(); next.focus(); next.click(); }
@@ -120,10 +131,17 @@
     libraryToggle.querySelector('.collapse-icon').textContent = expanded ? '⌄' : '⌃';
   });
   window.addEventListener('video-library-updated', () => {
-    activeIndex = -1;
+    const currentFile = activeIndex >= 0 && library[activeIndex] ? library[activeIndex].file : '';
     render();
+    const nextIndex = currentFile ? library.findIndex(item => item.file === currentFile) : -1;
+    if (nextIndex >= 0) {
+      activeIndex = nextIndex;
+      render();
+      return;
+    }
     if (library.length) play(0);
     else {
+      activeIndex = -1;
       player.removeAttribute('src');
       player.load();
       title.textContent = 'Pick something from your library';
@@ -132,7 +150,7 @@
     }
   });
   player.addEventListener('error', () => {
-    if (player.error) description.textContent = 'Could not load this MP4. Check that the file is in the listed path and encoded in a browser-supported format.';
+    if (player.error) description.textContent = 'Could not load this MP4. Check the file path and that the video is stored with Git LFS on GitHub.';
   });
   render();
   if (library.length) play(0);
