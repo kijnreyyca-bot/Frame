@@ -51,6 +51,8 @@
     "Making This On Gacha Life Has Got To Be Illegal... - Sugarrushsean (480p).mp4",
     "Making This With Animal Hospital Has Got To Be Illegal... - Sugarrushsean (480p).mp4",
     "Outing Your Kinks On Roblox Like This Has Got To Be Illegal... - Sugarrushsean (480p).mp4",
+    "Roblox and Discord are Absolutely Disgusting Right Now....mp4",
+    "The Streamer Who Threatened A Minor.mp4",
     "There's No Way Fans Of Dandys World Genuinely Watch This... - Sugarrushsean (480p).mp4",
     "There's No Way Forsaken Fans Actually Find This Funny... - Sugarrushsean (480p).mp4",
     "These Fans Have No Right Being This Disgusting....mp4",
