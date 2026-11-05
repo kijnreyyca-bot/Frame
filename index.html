@@ -203,6 +203,10 @@ try {
     }
 
     apply(root.dataset.theme, false);
+    // Live-sync when another tab or site on this origin changes the theme.
+    window.addEventListener('storage', function (event) {
+      if (event.key === 'theme') apply(event.newValue, false);
+    });
     btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(menu.hidden); });
     opts.forEach(function (o) {
       o.addEventListener('click', function () {
