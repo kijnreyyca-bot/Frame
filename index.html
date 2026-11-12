@@ -183,21 +183,31 @@ try {
 <script>
   // Theme switcher: the choice is remembered in this browser.
   (function () {
-    var COLORS = { void: '#000000', dark: '#1a1a1d', white: '#eceef1', blue: '#0a1628' };
+    // Each theme's background lives in CSS (--bg), so read it instead of
+    // keeping a duplicate colour table here.
+    var THEMES = ['void', 'dark', 'white', 'blue'];
+    var LABELS = { void: 'The Void', dark: 'Dark', white: 'White', blue: 'Dark Blue' };
     var root = document.documentElement;
     var btn = document.querySelector('#theme-btn');
     var menu = document.querySelector('#theme-menu');
     var meta = document.querySelector('#theme-color');
-    var opts = menu.querySelectorAll('.theme-opt');
+    var opts = menu ? menu.querySelectorAll('.theme-opt') : [];
+
+    function themeColor() {
+      var bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+      return bg || '#1a1a1d';
+    }
 
     function apply(name, save) {
-      if (!COLORS[name]) name = 'dark';
+      if (THEMES.indexOf(name) < 0) name = 'dark';
       root.dataset.theme = name;
-      meta.setAttribute('content', COLORS[name]);
+      if (meta) meta.setAttribute('content', themeColor());
+      if (btn) btn.setAttribute('aria-label', 'Theme: ' + (LABELS[name] || name));
       opts.forEach(function (o) { o.setAttribute('aria-checked', String(o.dataset.t === name)); });
       if (save) { try { localStorage.setItem('theme', name); } catch (e) {} }
     }
     function toggle(open) {
+      if (!menu || !btn) return;
       menu.hidden = !open;
       btn.setAttribute('aria-expanded', String(open));
     }
@@ -207,18 +217,20 @@ try {
     window.addEventListener('storage', function (event) {
       if (event.key === 'theme') apply(event.newValue, false);
     });
-    btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(menu.hidden); });
-    opts.forEach(function (o) {
-      o.addEventListener('click', function () {
-        apply(o.dataset.t, true);
-        toggle(false);
-        btn.focus();
+    if (btn && menu) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(menu.hidden); });
+      opts.forEach(function (o) {
+        o.addEventListener('click', function () {
+          apply(o.dataset.t, true);
+          toggle(false);
+          btn.focus();
+        });
       });
-    });
-    document.addEventListener('click', function (e) { if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) toggle(false); });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !menu.hidden) { toggle(false); btn.focus(); }
-    });
+      document.addEventListener('click', function (e) { if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) toggle(false); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !menu.hidden) { toggle(false); btn.focus(); }
+      });
+    }
   })();
 </script>
 </body>
