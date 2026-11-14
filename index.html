@@ -11,10 +11,26 @@ try {
   if (/^(void|dark|white|blue)$/.test(savedTheme)) document.documentElement.dataset.theme = savedTheme;
 } catch (error) {}
 </script>
+<script>
+// Collected so the debug button can report problems on devices where DevTools
+// is blocked (for example school-managed Chromebooks).
+window.__frameErrors = [];
+window.addEventListener('error', function (event) {
+  if (window.__frameErrors.length < 20) {
+    window.__frameErrors.push((event.message || 'Script error') + ' @ ' + (event.filename || '?') + ':' + (event.lineno || 0));
+  }
+});
+window.addEventListener('unhandledrejection', function (event) {
+  if (window.__frameErrors.length < 20) {
+    var reason = event.reason;
+    window.__frameErrors.push('promise: ' + ((reason && reason.message) || reason));
+  }
+});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
@@ -52,10 +68,19 @@ try {
 </main>
 <footer class="footer">
   <span><a class="footer-brand" href="#">Frame<span class="brand-dot">.</span></a> YouTube library</span>
-  <span>Videos stream from YouTube using privacy-enhanced embeds.</span>
+  <span class="footer-right"><span>Videos stream from YouTube using privacy-enhanced embeds.</span><button class="debug-btn" id="debug-btn" type="button">Debug info</button></span>
 </footer>
 </div>
-<script src="library.js?v=5"></script>
+<dialog class="debug-dialog" id="debug-dialog" aria-labelledby="debug-title">
+  <div class="debug-head">
+    <h2 id="debug-title">Debug report</h2>
+    <button class="debug-close" id="debug-close" type="button" aria-label="Close debug report">×</button>
+  </div>
+  <p class="debug-status" id="debug-status">Checking this browser…</p>
+  <textarea class="debug-text" id="debug-text" readonly spellcheck="false" aria-label="Debug report text"></textarea>
+  <div class="debug-actions"><button class="debug-copy" id="debug-copy" type="button">Copy report</button><button class="debug-done" id="debug-done" type="button">Close</button></div>
+</dialog>
+<script src="library.js?v=6"></script>
 <script>
 (() => {
   'use strict';
@@ -184,6 +209,29 @@ try {
   });
   render();
   if (library.length) play(0, { autoplay: false });
+
+  // Used by the debug report button below.
+  window.FRAME_DEBUG = {
+    current: () => {
+      const item = library[activeIndex] || null;
+      const node = player.firstElementChild;
+      const tag = node ? node.tagName.toLowerCase() : '';
+      return {
+        index: activeIndex,
+        item,
+        librarySize: library.length,
+        tag,
+        iframeSrc: tag === 'iframe' ? node.src : '',
+        video: tag === 'video' ? {
+          src: node.currentSrc || node.src,
+          readyState: node.readyState,
+          paused: node.paused,
+          error: node.error ? node.error.code : null
+        } : null
+      };
+    },
+    errors: window.__frameErrors || []
+  };
 })();
 </script>
 <script>
@@ -238,6 +286,361 @@ try {
       });
     }
   })();
+</script>
+<script>
+// Debug report: checks the YouTube embed from inside the page, then copies a
+// short report to the clipboard. This is the fallback for devices where
+// DevTools is blocked, such as school-managed Chromebooks.
+(() => {
+  'use strict';
+
+  const YT = 'https://www.youtube-nocookie.com';
+  const YT_ERRORS = {
+    2: 'invalid parameter',
+    5: 'HTML5 player error',
+    100: 'video not found or private',
+    101: 'embedding disabled (owner or age restriction)',
+    150: 'embedding disabled (owner or age restriction)',
+    153: 'missing HTTP referrer'
+  };
+  const STATE_NAMES = { '-1': 'unstarted', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' };
+  const MEDIA_ERRORS = { 1: 'aborted', 2: 'network', 3: 'decode', 4: 'unsupported source' };
+
+  const btn = document.querySelector('#debug-btn');
+  const dialog = document.querySelector('#debug-dialog');
+  const status = document.querySelector('#debug-status');
+  const output = document.querySelector('#debug-text');
+  const copyBtn = document.querySelector('#debug-copy');
+  const closeBtn = document.querySelector('#debug-close');
+  const doneBtn = document.querySelector('#debug-done');
+  if (!btn || !dialog || !status || !output) return;
+
+  let running = false;
+  const ms = value => (value == null ? 'no' : value + ' ms');
+  const stateName = value => STATE_NAMES[String(value)] || String(value);
+  const mediaError = code => (code == null ? 'none' : code + ' (' + (MEDIA_ERRORS[code] || 'unknown') + ')');
+
+  function openDialog() {
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+  function closeDialog() {
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+    btn.focus();
+  }
+
+  async function copyText(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (error) {}
+    try {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0';
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      return ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function probeImage(url, timeoutMs) {
+    return new Promise(resolve => {
+      const image = new Image();
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        image.onload = image.onerror = null;
+        resolve(value);
+      };
+      const timer = setTimeout(() => finish('timeout'), timeoutMs || 6000);
+      image.onload = () => finish('ok');
+      image.onerror = () => finish('error');
+      image.src = url;
+    });
+  }
+
+  function probeVideo(video, timeoutMs) {
+    return new Promise(resolve => {
+      const read = () => ({ readyState: video.readyState, paused: video.paused, error: video.error ? video.error.code : null });
+      if (!video) return resolve(null);
+      if (video.error || video.readyState >= 2) return resolve(read());
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        video.removeEventListener('loadedmetadata', finish);
+        video.removeEventListener('canplay', finish);
+        video.removeEventListener('error', finish);
+        resolve(read());
+      };
+      const timer = setTimeout(finish, timeoutMs || 6000);
+      video.addEventListener('loadedmetadata', finish);
+      video.addEventListener('canplay', finish);
+      video.addEventListener('error', finish);
+    });
+  }
+
+  function probeEmbed(id, timeoutMs) {
+    return new Promise(resolve => {
+      const result = { id, load: null, ready: null, states: [], error: null, playable: null, errorCode: null, video: null, messages: 0, events: [] };
+      const start = performance.now();
+      const frame = document.createElement('iframe');
+      const origin = location.origin && location.origin !== 'null' ? '&origin=' + encodeURIComponent(location.origin) : '';
+      let settled = false;
+      let settleTimer = 0;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(hardTimer);
+        clearTimeout(settleTimer);
+        window.removeEventListener('message', onMessage);
+        frame.remove();
+        resolve(result);
+      };
+      const hardTimer = setTimeout(finish, timeoutMs || 10000);
+      const bump = () => {
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(finish, 2500);
+      };
+      const recordState = value => {
+        if (value == null) return false;
+        if (!result.states.includes(value)) {
+          result.states.push(value);
+          return true;
+        }
+        return false;
+      };
+      const command = (func, args) => {
+        try {
+          frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: args || [], id: 'frameprobe', channel: 'widget' }), YT);
+        } catch (error) {}
+      };
+      function onMessage(event) {
+        if (event.origin !== YT) return;
+        if (event.source !== frame.contentWindow) return;
+        let data = event.data;
+        if (typeof data === 'string') {
+          try { data = JSON.parse(data); } catch (error) { return; }
+        }
+        if (!data || typeof data !== 'object') return;
+        result.messages++;
+        const name = data.event || '';
+        if (name && !result.events.includes(name)) result.events.push(name);
+        if (name === 'onReady' && result.ready == null) {
+          result.ready = Math.round(performance.now() - start);
+          command('mute', []);
+          command('playVideo', []);
+          bump();
+        }
+        if (name === 'onError') {
+          result.error = data.info;
+          finish();
+          return;
+        }
+        const info = data.info;
+        if (name === 'onStateChange' && info != null) {
+          if (recordState(info)) bump();
+        }
+        if ((name === 'infoDelivery' || name === 'initialDelivery') && info && typeof info === 'object') {
+          if (recordState(info.playerState)) bump();
+          if (info.videoData) {
+            if (!result.video) result.video = { title: '', author: '' };
+            if (info.videoData.title) result.video.title = info.videoData.title;
+            if (info.videoData.author) result.video.author = info.videoData.author;
+            if (typeof info.videoData.isPlayable === 'boolean') result.playable = info.videoData.isPlayable;
+            if (info.videoData.errorCode != null) result.errorCode = info.videoData.errorCode;
+          }
+        }
+      }
+
+      frame.setAttribute('aria-hidden', 'true');
+      frame.tabIndex = -1;
+      frame.style.cssText = 'position:fixed;left:-9999px;top:0;width:320px;height:180px;border:0;opacity:0;pointer-events:none';
+      frame.allow = 'autoplay; encrypted-media';
+      frame.src = YT + '/embed/' + id + '?enablejsapi=1&autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1' + origin;
+      frame.addEventListener('load', () => {
+        if (result.load == null) result.load = Math.round(performance.now() - start);
+        try {
+          frame.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'frameprobe', channel: 'widget' }), YT);
+        } catch (error) {}
+      });
+      window.addEventListener('message', onMessage);
+      document.body.appendChild(frame);
+    });
+  }
+
+  function verdictFor(probe) {
+    if (!probe) return 'no video selected';
+    const code = probe.error != null ? probe.error : probe.errorCode;
+    if (code === 101 || code === 150) return 'NOT EMBEDDABLE (embedding disabled or age-restricted)';
+    if (code != null) return 'PLAYER ERROR ' + code + ' (' + (YT_ERRORS[code] || 'unknown') + ')';
+    if (probe.states.includes(1)) return 'PLAYABLE';
+    if (probe.states.includes(3)) return 'PLAYABLE (buffering)';
+    if (probe.playable === true) return 'EMBED OK, PLAYBACK DID NOT START (autoplay policy or CDN blocked)';
+    if (probe.playable === false) return 'NOT PLAYABLE (embed reports the video as unplayable)';
+    if (probe.ready != null) return 'PLAYER READY, NO PLAYBACK (age gate, Restricted Mode, or autoplay blocked)';
+    if (probe.load != null) return 'EMBED LOADED, PLAYER DID NOT START (player scripts blocked)';
+    return 'EMBED DID NOT LOAD (youtube-nocookie.com blocked or offline)';
+  }
+
+  async function environment() {
+    const ua = navigator.userAgent;
+    const data = navigator.userAgentData;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    let clientHints = '';
+    try {
+      if (data && data.getHighEntropyValues) {
+        const hints = await Promise.race([
+          data.getHighEntropyValues(['platformVersion', 'model']),
+          new Promise(resolve => setTimeout(() => resolve(null), 2000))
+        ]);
+        if (hints) clientHints = [hints.platformVersion, hints.model].filter(Boolean).join(' / ');
+      }
+    } catch (error) {}
+    return {
+      ua,
+      platform: (data && data.platform) || navigator.platform || '',
+      brands: data && data.brands ? data.brands.map(brand => brand.brand + ' ' + brand.version).join(', ') : '',
+      chrome: (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '',
+      cros: (ua.match(/CrOS ([^;)\s]+) ([\d.]+)/) || []).slice(1).join(' ') || '',
+      clientHints,
+      cores: navigator.hardwareConcurrency || 0,
+      memory: navigator.deviceMemory || 0,
+      viewport: innerWidth + 'x' + innerHeight + ' @' + Number(devicePixelRatio.toFixed(2)),
+      screen: screen.width + 'x' + screen.height,
+      online: navigator.onLine,
+      connection: connection
+        ? (connection.effectiveType || '?') + ', ' + (connection.downlink || '?') + ' Mbps, ' + (connection.rtt || '?') + ' ms' + (connection.saveData ? ', save-data' : '')
+        : 'unavailable',
+      language: navigator.language,
+      timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (error) { return ''; } })(),
+      theme: document.documentElement.dataset.theme || '',
+      motion: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduce' : 'no-preference',
+      visibility: document.visibilityState
+    };
+  }
+
+  function buildReport(env, state, probe, extra) {
+    const lines = [];
+    lines.push('Frame debug report');
+    lines.push('generated: ' + new Date().toISOString());
+    lines.push('page: ' + location.href);
+    lines.push('ua: ' + env.ua);
+    lines.push('platform: ' + [env.platform, env.chrome ? 'chrome ' + env.chrome : '', env.cros ? 'cros ' + env.cros : ''].filter(Boolean).join(' | '));
+    if (env.brands) lines.push('brands: ' + env.brands);
+    if (env.clientHints) lines.push('client hints: ' + env.clientHints);
+    lines.push('viewport: ' + env.viewport + ' | screen ' + env.screen + ' | cores ' + env.cores + (env.memory ? ' | memory ' + env.memory + 'GB' : ''));
+    lines.push('online: ' + env.online + ' | net: ' + env.connection);
+    lines.push('theme: ' + env.theme + ' | motion: ' + env.motion + ' | lang ' + env.language + ' | tz ' + env.timezone);
+    lines.push('library: ' + (state.librarySize || 0) + ' | selected: ' + (state.item ? '#' + (state.index + 1) + ' "' + state.item.title + '"' : 'none'));
+    lines.push('player: ' + (state.tag || 'none') + (state.iframeSrc ? ' ' + state.iframeSrc : ''));
+    if (state.video) {
+      lines.push('video: readyState=' + state.video.readyState + ' paused=' + state.video.paused + ' error=' + mediaError(state.video.error));
+    }
+    lines.push('--');
+    if (probe) {
+      lines.push('embed probe ' + probe.id + ':');
+      lines.push('  document loaded: ' + ms(probe.load));
+      lines.push('  player ready: ' + ms(probe.ready));
+      lines.push('  states: ' + (probe.states.length ? probe.states.map(stateName).join(', ') : 'none'));
+      if (probe.playable != null) lines.push('  playable flag: ' + probe.playable);
+      if (probe.video && probe.video.title) lines.push('  video: "' + probe.video.title + '"' + (probe.video.author ? ' / ' + probe.video.author : ''));
+      const code = probe.error != null ? probe.error : probe.errorCode;
+      lines.push('  player error: ' + (code == null ? 'none' : code + ' (' + (YT_ERRORS[code] || 'unknown') + ')'));
+      lines.push('  messages: ' + probe.messages + ' | events: ' + (probe.events.slice(0, 8).join(', ') || 'none'));
+      lines.push('  thumbnail: ' + extra.thumb);
+      lines.push('  verdict: ' + verdictFor(probe));
+    } else {
+      lines.push('embed probe: skipped (no YouTube video selected)');
+    }
+    lines.push('--');
+    lines.push('mp4 fallback: ' + extra.mp4);
+    lines.push('console errors: ' + (extra.errors.length ? extra.errors.join(' | ') : 'none'));
+    return lines.join('\n');
+  }
+
+  async function run() {
+    if (running) return;
+    running = true;
+    btn.disabled = true;
+    status.textContent = 'Running checks… this takes about 10 seconds.';
+    output.value = '';
+
+    try {
+      let state = {};
+      try { state = (window.FRAME_DEBUG && window.FRAME_DEBUG.current()) || {}; } catch (error) {}
+      const fallbackItem = Array.isArray(window.VIDEO_LIBRARY) && window.VIDEO_LIBRARY.length ? window.VIDEO_LIBRARY[0] : null;
+      const item = state.item || fallbackItem;
+      const id = item && /^[A-Za-z0-9_-]{11}$/.test(item.youtubeId || '') ? item.youtubeId : '';
+
+      const probe = id ? await probeEmbed(id) : null;
+      const thumb = id ? await probeImage('https://i.ytimg.com/vi/' + id + '/mqdefault.jpg') : 'n/a';
+
+      let mp4 = 'not in use';
+      if (item && item.mp4) {
+        const live = document.querySelector('#player video');
+        if (live) {
+          state.video = await probeVideo(live, 6000);
+          const detail = state.video.error != null
+            ? 'error=' + mediaError(state.video.error)
+            : state.video.readyState >= 2
+              ? 'metadata ok'
+              : 'no metadata after 6s';
+          mp4 = 'in use (readyState=' + state.video.readyState + ', ' + detail + ')';
+        } else {
+          mp4 = 'configured, not mounted';
+        }
+      }
+
+      const errors = (window.__frameErrors || []).slice(0, 10);
+      const text = buildReport(await environment(), state, probe, { thumb, mp4, errors });
+      output.value = text;
+
+      const copied = await copyText(text);
+      status.textContent = copied
+        ? 'Report ready and copied to the clipboard.'
+        : 'Report ready. Press Copy report, or select the text and press Ctrl+C.';
+      try { output.focus(); output.select(); } catch (error) {}
+    } catch (error) {
+      status.textContent = 'The check failed: ' + ((error && error.message) || error);
+      output.value = 'Frame debug report\nfailed: ' + ((error && error.stack) || error);
+    } finally {
+      running = false;
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    openDialog();
+    run();
+  });
+  if (closeBtn) closeBtn.addEventListener('click', closeDialog);
+  if (doneBtn) doneBtn.addEventListener('click', closeDialog);
+  if (copyBtn) copyBtn.addEventListener('click', async () => {
+    const copied = await copyText(output.value);
+    status.textContent = copied ? 'Copied to the clipboard.' : 'Copy failed. Select the text and press Ctrl+C.';
+  });
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) closeDialog();
+  });
+})();
 </script>
 </body>
 </html>
