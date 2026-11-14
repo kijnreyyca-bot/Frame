@@ -2,9 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" id="theme-color" content="#1a1a1d">
-<meta name="description" content="A clean home for your MP4 library.">
+<meta name="description" content="A clean home for the videos in your collection.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a1a1d'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='%23c2f28b'/%3E%3C/svg%3E">
-<title>Frame — MP4 Library</title>
+<title>Frame — Video Library</title>
 <script>
 try {
   var savedTheme = localStorage.getItem('theme');
@@ -14,7 +14,7 @@ try {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
@@ -37,8 +37,8 @@ try {
 <main class="layout">
 <section class="main-column" aria-label="Video player">
   <div class="heading"><div><div class="eyebrow">NOW PLAYING</div><h1 id="page-title">Choose a video</h1></div><div id="library-count" class="count"></div></div>
-  <div class="player-wrap"><video id="player" controls playsinline preload="metadata"></video></div>
-  <div class="now-playing"><h2 id="video-title">Pick something from your library</h2><p id="video-description">Your videos play here in the browser.</p><div class="tip">Keyboard: Space to play or pause · ← / → to seek</div></div>
+  <div class="player-wrap"><div class="player-mount" id="player"></div></div>
+  <div class="now-playing"><h2 id="video-title">Pick something from your library</h2><p id="video-description">Videos play here, streamed from YouTube.</p><div class="tip">Playback is handled by YouTube — use its controls for captions, quality and fullscreen.</div></div>
 </section>
 <aside class="sidebar" aria-label="Video library">
   <div class="side-head"><div><div class="eyebrow">YOUR COLLECTION</div><h2>Library</h2></div><div class="library-actions"><div id="list-count" class="count"></div><button class="collapse-toggle" id="library-toggle" type="button" aria-expanded="true" aria-controls="library-content"><span class="toggle-label">Hide videos</span><span class="collapse-icon" aria-hidden="true">⌃</span></button></div></div>
@@ -46,16 +46,16 @@ try {
     <input class="search" id="filter" type="search" placeholder="Filter videos…" aria-label="Filter the video library">
     <div class="tabs" id="library-tabs" role="tablist" aria-label="Video categories"></div>
     <div class="list" id="video-list"></div>
-    <div class="library-note"><strong>Shared across your devices</strong>Keep your MP4 files in the <code>videos</code> folder. They are stored with Git LFS and streamed from GitHub's media host, so the library works anywhere the site is published.</div>
+    <div class="library-note"><strong>Streamed from YouTube</strong>Videos play through a privacy-enhanced YouTube embed, and age-restricted ones fall back to the original file. The list lives in <code>library.js</code>, so it loads instantly anywhere the site is published.</div>
   </div>
 </aside>
 </main>
 <footer class="footer">
-  <span><a class="footer-brand" href="#">Frame<span class="brand-dot">.</span></a> MP4 player</span>
-  <span>Files are served by your website. No account or video service needed.</span>
+  <span><a class="footer-brand" href="#">Frame<span class="brand-dot">.</span></a> YouTube library</span>
+  <span>Videos stream from YouTube using privacy-enhanced embeds.</span>
 </footer>
 </div>
-<script src="library.js?v=4"></script>
+<script src="library.js?v=5"></script>
 <script>
 (() => {
   'use strict';
@@ -74,7 +74,8 @@ try {
   let activeIndex = -1;
   let activeCategory = 'All';
   const clean = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  const safeVideoPath = value => {
+  const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+  const safeMp4 = value => {
     if (typeof value !== 'string' || !value.trim()) return '';
     try {
       const url = new URL(value, window.location.href);
@@ -83,6 +84,31 @@ try {
       return url.href;
     } catch { return ''; }
   };
+  const playable = item => YOUTUBE_ID.test(item.youtubeId || '') || Boolean(safeMp4(item.mp4 || ''));
+  const embedUrl = (id, autoplay) => `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1&playsinline=1${autoplay ? '&autoplay=1' : ''}`;
+  function showYouTube(item, autoplay) {
+    const frame = document.createElement('iframe');
+    frame.className = 'player-frame';
+    frame.src = embedUrl(item.youtubeId, autoplay);
+    frame.title = `${item.title || 'Video'} — YouTube player`;
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allowFullscreen = true;
+    player.replaceChildren(frame);
+  }
+  function showMp4(item, autoplay) {
+    const video = document.createElement('video');
+    video.className = 'player-video';
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.src = safeMp4(item.mp4);
+    video.addEventListener('error', () => {
+      description.textContent = 'Could not load the original file for this age-restricted video.';
+    });
+    player.replaceChildren(video);
+    if (autoplay) video.play().catch(() => {});
+  }
   function renderTabs() {
     const categories = ['All', ...new Set(library.map(item => item.category || 'Other').sort((a, b) => a.localeCompare(b)))];
     if (!categories.includes(activeCategory)) activeCategory = 'All';
@@ -98,29 +124,31 @@ try {
     const query = filter.value.trim().toLowerCase();
     const matches = library.map((item, index) => ({item,index})).filter(({item}) => {
       const categoryMatches = activeCategory === 'All' || (item.category || 'Other') === activeCategory;
-      return categoryMatches && `${item.title} ${item.description}`.toLowerCase().includes(query) && safeVideoPath(item.file);
+      return categoryMatches && `${item.title} ${item.description}`.toLowerCase().includes(query) && playable(item);
     });
-    list.innerHTML = matches.length ? matches.map(({item,index}) => `<button class="video-row${activeIndex === index ? ' active' : ''}" type="button" data-index="${index}"><span class="thumb" aria-hidden="true">▶</span><span class="video-info"><span class="video-title">${clean(item.title || 'Untitled video')}</span><span class="video-desc">${clean(item.description || 'MP4 video')}</span></span></button>`).join('') : '<div class="empty"><strong>No videos found</strong>Try another category or search.</div>';
+    list.innerHTML = matches.length ? matches.map(({item,index}) => `<button class="video-row${activeIndex === index ? ' active' : ''}" type="button" data-index="${index}"><span class="thumb" aria-hidden="true">▶</span><span class="video-info"><span class="video-title">${clean(item.title || 'Untitled video')}</span><span class="video-desc">${clean(item.description || 'YouTube video')}</span></span></button>`).join('') : '<div class="empty"><strong>No videos found</strong>Try another category or search.</div>';
     count.textContent = `${library.length} ${library.length === 1 ? 'video' : 'videos'}`;
     listCount.textContent = `${matches.length} shown`;
   }
-  function play(index) {
+  function play(index, options = {}) {
     const item = library[index];
     if (!item) return;
-    const src = safeVideoPath(item.file);
-    if (!src) {
-      title.textContent = 'This video path is invalid';
-      description.textContent = 'Fix or remove the file entry in library.js.';
+    const autoplay = options.autoplay !== false;
+    const mp4 = safeMp4(item.mp4 || '');
+    const hasYouTube = YOUTUBE_ID.test(item.youtubeId || '');
+    if (!mp4 && !hasYouTube) {
+      title.textContent = 'This video is unavailable';
+      description.textContent = 'Add a YouTube ID to library.js or restore the original file.';
+      pageTitle.textContent = 'Video unavailable';
       return;
     }
     activeIndex = index;
-    player.src = src;
-    player.load();
+    if (mp4) showMp4(item, autoplay);
+    else showYouTube(item, autoplay);
     title.textContent = item.title || 'Untitled video';
-    description.textContent = item.description || 'MP4 video';
+    description.textContent = item.description || 'YouTube video';
     pageTitle.textContent = item.title || 'Untitled video';
     render();
-    player.play().catch(() => {});
   }
   list.addEventListener('click', event => {
     const button = event.target.closest('[data-index]');
@@ -154,30 +182,8 @@ try {
     libraryToggle.querySelector('.toggle-label').textContent = expanded ? 'Show videos' : 'Hide videos';
     libraryToggle.querySelector('.collapse-icon').textContent = expanded ? '⌄' : '⌃';
   });
-  window.addEventListener('video-library-updated', () => {
-    const currentFile = activeIndex >= 0 && library[activeIndex] ? library[activeIndex].file : '';
-    render();
-    const nextIndex = currentFile ? library.findIndex(item => item.file === currentFile) : -1;
-    if (nextIndex >= 0) {
-      activeIndex = nextIndex;
-      render();
-      return;
-    }
-    if (library.length) play(0);
-    else {
-      activeIndex = -1;
-      player.removeAttribute('src');
-      player.load();
-      title.textContent = 'Pick something from your library';
-      description.textContent = 'Add MP4 files to the videos folder and push them to GitHub.';
-      pageTitle.textContent = 'Choose a video';
-    }
-  });
-  player.addEventListener('error', () => {
-    if (player.error) description.textContent = 'Could not load this MP4. Check the file path and that the video is stored with Git LFS on GitHub.';
-  });
   render();
-  if (library.length) play(0);
+  if (library.length) play(0, { autoplay: false });
 })();
 </script>
 <script>
