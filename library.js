@@ -41,6 +41,7 @@
     "There's No Way Fans Of Dandys World Genuinely Watch This... - Sugarrushsean (480p).mp4": 'HJV2-GbYm9o',
     "There's No Way Forsaken Fans Actually Find This Funny... - Sugarrushsean (480p).mp4": 'mP94glRy2rs',
     'These Fans Have No Right Being This Disgusting....mp4': '4MIAAeiivIE',
+    'Installing Windows 11 on a MacBook Pro from 2007....mp4': '2RA-zcBE9aY',
     'This Animal Hospital Creator Has Got To Be Locked Up For This... - Sugarrushsean (480p).mp4': 'T4EqiEYwh7Q',
     'This Animal Hospital Creator Has Got To Be Put Down... - Sugarrushsean (480p).mp4': 'm-Vus9HRvTw',
     'This Has Got To Be The Worst Song To Ever Curse My Ears... - Sugarrushsean (480p).mp4': '_JtRPQJpL6s',
@@ -66,6 +67,7 @@
     'I Tricked Discord Bots into Leaking their Password..mp4': 'No Text To Speech',
     'Roblox and Discord are Absolutely Disgusting Right Now....mp4': 'No Text To Speech',
     'The Streamer Who Threatened A Minor.mp4': 'Turkey Tom',
+    'Installing Windows 11 on a MacBook Pro from 2007....mp4': 'Metrabyte',
     'im-disappointed-in-discord.mp4': 'No Text To Speech'
   };
 
