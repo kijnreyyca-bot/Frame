@@ -70,7 +70,6 @@
     'The Streamer Who Threatened A Minor.mp4': 'Turkey Tom',
     'Installing Windows 11 on a MacBook Pro from 2007....mp4': 'Metrabyte',
     'im-disappointed-in-discord.mp4': 'No Text To Speech'
-      'Dumbass AI Responses 🎉.mp4': 'ElevenZ'
   };
 
   const specialCategories = {
