@@ -53,7 +53,8 @@
     'This Was The Last Thing I Was Expecting TikTok To Add... - Sugarrushsean (480p).mp4': 'N_RG8U4eh5E',
     'TikTok Rants Are Some Of The Worst Content On The Internet... - Sugarrushsean (480p).mp4': '0fTX310YftI',
     'Using Kids To Click This Is Genuinely Concerning... - Sugarrushsean (480p).mp4': 'J1Lx12c63Fc',
-    'Yumeshippers Are Insane For Finding This Attractive... - Sugarrushsean (480p).mp4': 'A2qt8ZTv6Yw'
+    'Yumeshippers Are Insane For Finding This Attractive... - Sugarrushsean (480p).mp4': 'A2qt8ZTv6Yw',
+    'Dumbass AI Responses 🎉.mp4': 'X0bMXs-mbrY'
   };
 
   // These two show "Sorry, this content is age-restricted" in every embed.
@@ -129,7 +130,8 @@
     "TikTok Rants Are Some Of The Worst Content On The Internet... - Sugarrushsean (480p).mp4",
     "Using Kids To Click This Is Genuinely Concerning... - Sugarrushsean (480p).mp4",
     "Installing Windows 11 on a MacBook Pro from 2007....mp4",
-    "Yumeshippers Are Insane For Finding This Attractive... - Sugarrushsean (480p).mp4"
+    "Yumeshippers Are Insane For Finding This Attractive... - Sugarrushsean (480p).mp4",
+    "Dumbass AI Responses 🎉.mp4"
   ];
 
   window.VIDEO_LIBRARY = files.map(makeVideo);
